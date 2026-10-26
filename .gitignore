@@ -1,0 +1,21 @@
+# 凭证与登录态（绝对不要提交）
+cookies.json
+browser_profile/
+*.cookie
+
+# 运行产物
+last_run.log
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# 编辑器 / 系统
+.DS_Store
+.idea/
+.vscode/
