@@ -29,6 +29,9 @@
   镜像 `imageId`、场次起止时间、地域列表（广州/上海/北京）。
 - **扫码登录**。Playwright 拉起系统 Chrome（复用你已装的浏览器，**不额外下载 130MB 内核**），
   登录成功后从上下文读取全部 Cookie 并落盘（`600` 权限）。
+- **登录态真伪校验**。扫码成功 ≠ Cookie 可用：登录页本身就会下发临时 `skey`。
+  本项目要求 `skey + uin` 齐全、页面已离开登录页、后台探针不再返回 `NOT-LOGINED`，
+  三关全过才算登录成功；等待期间只被动观察，**不会跳转或新开页面打断你填验证码**。
 - **毫秒级校时**。取接口响应里的 `nowTime` 毫秒时间戳，配合 RTT/2 估算偏移，
   精度从 HTTP `Date` 头那套 ±500ms 提升到 ±(RTT/2)。
 - **倒计时 + 提前量触发**。默认提前 1500ms 开始派发，到点后按间隔并发打多个地域。
@@ -40,7 +43,7 @@
 ### 方式 A：作为 AI 助手技能（推荐，零门槛）
 
 ```bash
-git clone https://github.com/<you>/tencent-cloud-38-seckill.git \
+git clone https://github.com/KenSporger/tencent-cloud-38-seckill.git \
   ~/.workbuddy/skills/tencent-cloud-38-seckill
 ```
 
@@ -52,7 +55,7 @@ git clone https://github.com/<you>/tencent-cloud-38-seckill.git \
 ### 方式 B：纯命令行
 
 ```bash
-git clone https://github.com/<you>/tencent-cloud-38-seckill.git
+git clone https://github.com/KenSporger/tencent-cloud-38-seckill.git
 cd tencent-cloud-38-seckill
 
 python3 scripts/bootstrap.py        # 建 venv + 装 aiohttp / playwright，幂等
@@ -112,12 +115,13 @@ caffeinate -i $PY scripts/seckill.py
         └─ $goods.{type,image_id,goods_param} → 下单商品参数
                                      ↓
                           POST /dianshi/do-goods
-                          X-Csrf-Token: md5("skey=" + skey)
+                          X-Csrf-Token: djb2(skey) & 0x7FFFFFFF
                                      ↓
                               下单结果
 ```
 
-CSRF token 由 `skey` 计算得出，这是 Cookie 无法绕过的原因，也是必须登录的原因。
+CSRF token 由 `skey` 计算得出（djb2 哈希取低 31 位，即 `djb2(skey) & 0x7FFFFFFF`），
+这是 Cookie 无法绕过的原因，也是必须登录的原因。
 `query-seckill-by-date` 是公开接口（未登录也正常返回），所以**不能**用它判断登录态 ——
 本项目用 `do-goods` + `preview=1` 做鉴权探针。
 
@@ -125,6 +129,16 @@ CSRF token 由 `skey` 计算得出，这是 Cookie 无法绕过的原因，也�
 
 **Q: 报 `NOT-LOGINED` / `登陆态校验失败`？**
 Cookie 过期了，重新跑 `login.py` 扫码。
+
+**Q: 扫码后浏览器每隔几秒重开一次扫码页，验证码根本没法填？**
+旧版校验方式有 bug（每 3 秒新开标签页访问控制台，未登录会被重定向回扫码页）。
+现在等待期间只被动观察已有标签页地址 + Cookie，确认登录态走后台 HTTP 探针，
+完全不碰浏览器界面。遇到这个现象请更新到最新版。
+
+**Q: 明明提示登录成功，第二天却报 Cookie 失效？**
+旧版把登录页的临时 `skey` 误判成登录成功，存下来的是废 Cookie（`logout` 后浏览器里
+连 `uin` 都不存在）。现在要求 `skey + uin` 齐全 + 页面已离开登录页 + 探针通过，
+三关全过才落盘，且 `login.py --check` 会给出真实结论。
 
 **Q: 报 `1100110 正在执行其他操作`？**
 这个账号有请求排队，通常意味着本轮已经抢到了，去[待付款订单](https://console.cloud.tencent.com/expense/deal)看看。

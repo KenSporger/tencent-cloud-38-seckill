@@ -136,8 +136,8 @@ async def run(args) -> int:
 
     # ---------- 2. Cookie ----------
     jar = lib.load_cookies()
-    if not jar or not lib.pick_skey(jar):
-        print("[!] 还没有可用的 Cookie。")
+    if not lib.has_login_cookies(jar):
+        print("[!] 还没有可用的登录 Cookie（需要 skey + uin 都在）。")
         print("    请先运行: python3 login.py   （会弹浏览器让你扫码登录一次）")
         return 3
     csrf = lib.compute_csrf(lib.pick_skey(jar))

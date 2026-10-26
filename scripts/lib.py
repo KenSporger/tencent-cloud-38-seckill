@@ -50,6 +50,19 @@ def pick_skey(cookies: dict) -> str:
     return cookies.get("skey") or cookies.get("p_skey") or ""
 
 
+def has_login_cookies(cookies: dict) -> bool:
+    """是否具备完整登录态。
+
+    只看 skey 是错的 —— cloud.tencent.com/login 页面本身就会下发一张
+    临时 skey（防 CSRF 用），未登录时也存在。真正的判据是 skey 和 uin 同时有值。
+    """
+    if not cookies:
+        return False
+    if not pick_skey(cookies):
+        return False
+    return bool(cookies.get("uin") or cookies.get("p_uin"))
+
+
 def summarize_cookies(cookies: dict) -> str:
     """只暴露安全的部分，别把 skey 打到日志里。"""
     bits = []
